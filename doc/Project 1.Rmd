@@ -1,0 +1,312 @@
+---
+title: "Happy Moments"
+author: "Tao Han"
+output: html_notebook
+---
+
+```{r load libraries, warning=FALSE, message=FALSE, echo=FALSE}
+
+library(tidyverse)
+library(tidytext)
+library(DT)
+library(scales)
+library(wordcloud2)
+library(gridExtra)
+library(ngram)
+library(igraph)
+library(ggraph)
+library(shiny)
+```
+
+```{r load data, warning=FALSE, message=FALSE, echo=FALSE}
+hm_data <- read_csv("../output/processed_moments.csv")
+
+urlfile<-'https://raw.githubusercontent.com/rit-public/HappyDB/master/happydb/data/demographic.csv'
+demo_data <- read_csv(urlfile)
+```
+
+```{r combining data, warning=FALSE, message=FALSE, echo=FALSE}
+hm_data <- hm_data %>%
+  inner_join(demo_data, by = "wid") %>%
+  select(wid,
+         original_hm,
+         gender, 
+         marital, 
+         parenthood,
+         reflection_period,
+         age, 
+         country, 
+         ground_truth_category, 
+         text) %>%
+  mutate(count = sapply(hm_data$text, wordcount)) %>%
+  filter(gender %in% c("m", "f")) %>%
+  filter(marital %in% c("single", "married")) %>%
+  filter(parenthood %in% c("n", "y")) %>%
+  filter(reflection_period %in% c("24h", "3m")) %>%
+  mutate(reflection_period = fct_recode(reflection_period, 
+                                        months_3 = "3m", hours_24 = "24h"))
+```
+
+
+```{r bag of words, warning=FALSE, message=FALSE, echo=FALSE}
+bag_of_words <-  hm_data %>%
+  unnest_tokens(word, text)
+
+word_count <- bag_of_words %>%
+  count(word, sort = TRUE)
+```
+
+##Let's look at what makes people happy. 
+```{r, warning=FALSE, message=FALSE, echo=FALSE}
+word_count %>%
+      slice(1:100) %>%
+      wordcloud2(size = 0.6,
+                 rotateRatio = 0)
+```
+
+##What are the top 10 key words that appear in people's mind when thinking about happy moments?
+```{r, warning=FALSE, message=FALSE, echo=FALSE}
+
+word_count %>%
+      slice(1:10) %>%
+      mutate(word = reorder(word, n)) %>%
+      ggplot(aes(word, n)) +
+      geom_col() +
+      xlab(NULL) +
+      ylab("Word Frequency")+
+      coord_flip()
+```
+
+##It looks like people will think about "friend", "family" and "home". But what about those other words, which seem to be coming in pairs. let's look at the top 10 phrases that appear in people's mind when thinking about happy moments.
+```{r bigram, warning=FALSE, message=FALSE, echo=FALSE}
+
+hm_bigrams <- hm_data %>%
+  filter(count != 1) %>%
+  unnest_tokens(bigram, text, token = "ngrams", n = 2)
+
+bigram_counts <- hm_bigrams %>%
+  separate(bigram, c("word1", "word2"), sep = " ") %>%
+  count(word1, word2, sort = TRUE)
+```
+
+```{r, warning=FALSE, message=FALSE, echo=FALSE}
+bigram_counts[1:10, ]
+
+bigram_graph <- bigram_counts %>% slice(1:10) %>% graph_from_data_frame()
+set.seed(123)
+x <- grid::arrow(type = "closed", length = unit(.1, "inches"))
+ggraph(bigram_graph, layout = "fr") +
+      geom_edge_link(aes(edge_alpha = n), show.legend = FALSE,
+                     arrow = x, end_cap = circle(.03, 'inches')) +
+      geom_node_point(color = "skyblue", size = 2) +
+      geom_node_text(aes(label = name), repel = TRUE) +
+      theme_void()
+```
+
+##People will be happy if they play "video game", eat "ice cream", have "birthday party" etc.
+
+#Who is playing video games?
+```{r, warning=FALSE, message=FALSE, echo=FALSE}
+hist(as.numeric(hm_bigrams[hm_bigrams$bigram == 'video game', ]$age), main = '', xlab = 'age')
+```
+
+#Who is having ice creams?
+```{r, warning=FALSE, message=FALSE, echo=FALSE}
+hist(as.numeric(hm_bigrams[hm_bigrams$bigram == 'ice cream', ]$age), main = '', xlab = 'age')
+```
+
+#Who is having birthday party?
+```{r, warning=FALSE, message=FALSE, echo=FALSE}
+hist(as.numeric(hm_bigrams[hm_bigrams$bigram == 'birthday party', ]$age), main = '', xlab = 'age')
+```
+
+##It looks like it is young people. Do young people really differ form elder people? 
+
+#People under 40 years old
+```{r, warning=FALSE, message=FALSE, echo=FALSE}
+
+word_count_young <- bag_of_words[bag_of_words$age <= 40, ] %>%
+  count(word, sort = TRUE)
+
+word_count_young %>%
+      slice(1:5) %>%
+      mutate(word = reorder(word, n)) %>%
+      ggplot(aes(word, n)) +
+      geom_col() +
+      xlab(NULL) +
+      ylab("Word Frequency")+
+      coord_flip()
+```
+
+#People over 40 years old
+```{r, warning=FALSE, message=FALSE, echo=FALSE}
+
+word_count_old <- bag_of_words[bag_of_words$age > 40, ] %>%
+  count(word, sort = TRUE)
+
+word_count_old %>%
+      slice(1:5) %>%
+      mutate(word = reorder(word, n)) %>%
+      ggplot(aes(word, n)) +
+      geom_col() +
+      xlab(NULL) +
+      ylab("Word Frequency")+
+      coord_flip()
+```
+
+##Spending time with family can bring elder people more happiness, while having time to hang out with friend can make young people more happy.
+
+##What about gender? Male enjoy having their friends while female likes to stay with families.
+
+```{r, warning=FALSE, message=FALSE, echo=FALSE}
+
+word_count_male <- bag_of_words[bag_of_words$gender == 'm', ] %>%
+  count(word, sort = TRUE)
+
+word_count_fmale <- bag_of_words[bag_of_words$gender == 'f', ] %>%
+  count(word, sort = TRUE)
+
+par(mfrow=c(1,2))
+
+word_count_male %>%
+      slice(1:5) %>%
+      mutate(word = reorder(word, n)) %>%
+      ggplot(aes(word, n)) +
+      geom_col() +
+      xlab(NULL) +
+      ylab("male")+
+      coord_flip()
+
+word_count_fmale %>%
+      slice(1:5) %>%
+      mutate(word = reorder(word, n)) %>%
+      ggplot(aes(word, n)) +
+      geom_col() +
+      xlab(NULL) +
+      ylab("female")+
+      coord_flip()
+```
+
+##Which is the more dominating factor, age or gender? As we can tell, age a is more important factor. 
+
+#Male group
+```{r, warning=FALSE, message=FALSE, echo=FALSE}
+par(mfrow=c(1,2))
+
+word_count_male_y <- bag_of_words[bag_of_words$gender == 'm' & bag_of_words$age <= 40, ] %>%
+  count(word, sort = TRUE)
+
+word_count_male_y %>%
+      slice(1:5) %>%
+      mutate(word = reorder(word, n)) %>%
+      ggplot(aes(word, n)) +
+      geom_col() +
+      xlab(NULL) +
+      ylab("under 40")+
+      coord_flip()
+
+word_count_male_o <- bag_of_words[bag_of_words$gender == 'm' & bag_of_words$age > 40, ] %>%
+  count(word, sort = TRUE)
+
+word_count_male_o %>%
+      slice(1:5) %>%
+      mutate(word = reorder(word, n)) %>%
+      ggplot(aes(word, n)) +
+      geom_col() +
+      xlab(NULL) +
+      ylab("over 40")+
+      coord_flip()
+```
+
+#Female group
+```{r, warning=FALSE, message=FALSE, echo=FALSE}
+
+par(mfrow=c(1,2))
+
+word_count_fmale_y <- bag_of_words[bag_of_words$gender == 'f' & bag_of_words$age <= 40, ] %>%
+  count(word, sort = TRUE)
+
+word_count_fmale_y %>%
+      slice(1:5) %>%
+      mutate(word = reorder(word, n)) %>%
+      ggplot(aes(word, n)) +
+      geom_col() +
+      xlab(NULL) +
+      ylab("under 40")+
+      coord_flip()
+
+word_count_fmale_o <- bag_of_words[bag_of_words$gender == 'f' & bag_of_words$age > 40, ] %>%
+  count(word, sort = TRUE)
+
+word_count_fmale_o %>%
+      slice(1:5) %>%
+      mutate(word = reorder(word, n)) %>%
+      ggplot(aes(word, n)) +
+      geom_col() +
+      xlab(NULL) +
+      ylab("over 40")+
+      coord_flip()
+```
+
+##If age is important, is it because of the marriage? Yes, family can bring more happiness to married people. 
+
+#Married group
+```{r, warning=FALSE, message=FALSE, echo=FALSE}
+
+par(mfrow=c(1,2))
+
+word_count_m_y <- bag_of_words[bag_of_words$marital == 'married' & bag_of_words$age <= 40, ] %>%
+  count(word, sort = TRUE)
+
+word_count_m_y %>%
+      slice(1:5) %>%
+      mutate(word = reorder(word, n)) %>%
+      ggplot(aes(word, n)) +
+      geom_col() +
+      xlab(NULL) +
+      ylab("under 40")+
+      coord_flip()
+
+word_count_m_o <- bag_of_words[bag_of_words$marital == 'married' & bag_of_words$age > 40, ] %>%
+  count(word, sort = TRUE)
+
+word_count_m_o %>%
+      slice(1:5) %>%
+      mutate(word = reorder(word, n)) %>%
+      ggplot(aes(word, n)) +
+      geom_col() +
+      xlab(NULL) +
+      ylab("over 40")+
+      coord_flip()
+```
+
+#Single group
+```{r, warning=FALSE, message=FALSE, echo=FALSE}
+
+par(mfrow=c(1,2))
+
+word_count_m_y <- bag_of_words[bag_of_words$marital == 'single' & bag_of_words$age <= 40, ] %>%
+  count(word, sort = TRUE)
+
+word_count_m_y %>%
+      slice(1:5) %>%
+      mutate(word = reorder(word, n)) %>%
+      ggplot(aes(word, n)) +
+      geom_col() +
+      xlab(NULL) +
+      ylab("under 40")+
+      coord_flip()
+
+word_count_m_o <- bag_of_words[bag_of_words$marital == 'single' & bag_of_words$age > 40, ] %>%
+  count(word, sort = TRUE)
+
+word_count_m_o %>%
+      slice(1:5) %>%
+      mutate(word = reorder(word, n)) %>%
+      ggplot(aes(word, n)) +
+      geom_col() +
+      xlab(NULL) +
+      ylab("over 40")+
+      coord_flip()
+```
+

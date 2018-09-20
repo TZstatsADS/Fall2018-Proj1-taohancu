@@ -98,6 +98,9 @@ img {
 .tabbed-pane {
   padding-top: 12px;
 }
+.html-widget {
+  margin-bottom: 20px;
+}
 button.code-folding-btn:focus {
   outline: none;
 }
@@ -192,16 +195,17 @@ $(document).ready(function () {
 </ul>
 <!-- rnb-text-end -->
 <!-- rnb-chunk-begin -->
-<!-- rnb-source-begin eyJkYXRhIjoiYGBgclxubGlicmFyeSh0aWR5dmVyc2UpXG5saWJyYXJ5KHRpZHl0ZXh0KVxubGlicmFyeShEVClcbmxpYnJhcnkoc2NhbGVzKVxubGlicmFyeSh3b3JkY2xvdWQyKVxuYGBgIn0= -->
-<pre class="r"><code>library(tidyverse)
+<!-- rnb-source-begin eyJkYXRhIjoiYGBgclxuXG5saWJyYXJ5KHRpZHl2ZXJzZSlcbmxpYnJhcnkodGlkeXRleHQpXG5saWJyYXJ5KERUKVxubGlicmFyeShzY2FsZXMpXG5saWJyYXJ5KHdvcmRjbG91ZDIpXG5saWJyYXJ5KGdyaWRFeHRyYSlcbmxpYnJhcnkobmdyYW0pXG5saWJyYXJ5KHNoaW55KSBcbmBgYCJ9 -->
+<pre class="r"><code>
+library(tidyverse)
 library(tidytext)
 library(DT)
 library(scales)
-library(wordcloud2)</code></pre>
+library(wordcloud2)
+library(gridExtra)
+library(ngram)
+library(shiny) </code></pre>
 <!-- rnb-source-end -->
-<!-- rnb-output-begin eyJkYXRhIjoiRXJyb3IgaW4gbGlicmFyeSh3b3JkY2xvdWQyKSA6IHRoZXJlIGlzIG5vIHBhY2thZ2UgY2FsbGVkIOKAmHdvcmRjbG91ZDLigJlcbiJ9 -->
-<pre><code>Error in library(wordcloud2) : there is no package called ‘wordcloud2’</code></pre>
-<!-- rnb-output-end -->
 <!-- rnb-chunk-end -->
 <!-- rnb-text-begin -->
 </div>
